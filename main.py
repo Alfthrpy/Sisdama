@@ -1,6 +1,5 @@
 import streamlit as st
 from supabase import create_client, Client
-
 from excel_uploader import display_excel_uploader
 from api_extractor import display_api_extractor
 
