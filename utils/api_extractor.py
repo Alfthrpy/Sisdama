@@ -79,7 +79,7 @@ def execute_join_pipeline(api_data, join_rules):
 
 def display_api_extractor(supabase: Client):
     """Menampilkan seluruh komponen untuk ekstraksi data dari API."""
-    
+
     st.header("1. Masukkan URL API Eksternal")
 
     # Inisialisasi state

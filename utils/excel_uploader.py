@@ -70,10 +70,8 @@ def display_excel_uploader(supabase: Client):
     Fungsi utama untuk menampilkan seluruh komponen uploader Excel.
     Menerima koneksi Supabase sebagai argumen.
     """
-    st.title("📤 Pengunggah Data Excel Dinamis")
-    st.markdown("Alat ini memungkinkan Anda mengunggah data ke tabel mana pun di database.")
 
-    st.header("Langkah 1: Pilih Tabel Tujuan")
+    st.header("1. Pilih Tabel Tujuan")
     tables = get_public_tables(supabase)
     if not tables:
         st.error("Tidak dapat mengambil daftar tabel dari database.")
@@ -82,7 +80,7 @@ def display_excel_uploader(supabase: Client):
     selected_table = st.selectbox("Pilih tabel yang ingin Anda isi datanya:", options=tables, index=None, placeholder="Pilih sebuah tabel...")
 
     if selected_table:
-        st.header(f"Langkah 2: Download Template untuk Tabel `{selected_table}`")
+        st.header(f"2. Download Template untuk Tabel `{selected_table}`")
         excel_bytes = generate_excel_template(supabase, selected_table)
         if excel_bytes:
             st.download_button(
@@ -94,7 +92,7 @@ def display_excel_uploader(supabase: Client):
         
         st.divider()
 
-        st.header("Langkah 3: Unggah File yang Sudah Diisi")
+        st.header("3. Unggah File yang Sudah Diisi")
         uploaded_file = st.file_uploader(
             f"Pilih file Excel (.xlsx) untuk tabel `{selected_table}`",
             type=['xlsx'],
@@ -120,7 +118,6 @@ def display_excel_uploader(supabase: Client):
                             try:
                                 supabase.table(selected_table).insert(data_to_insert, returning="minimal").execute()
                                 st.success(f"Berhasil! {len(df)} baris data telah diunggah.")
-                                st.balloons()
                             except Exception as e:
                                 st.error(f"Terjadi kesalahan saat menyimpan: {e}")
             except Exception as e:
