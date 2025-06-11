@@ -3,6 +3,7 @@
 import streamlit as st
 import requests
 from supabase import Client
+import pandas as pd
 
 @st.cache_data(ttl=3600)
 def get_supabase_tables(_supabase: Client):
@@ -31,34 +32,158 @@ def get_unique_api_values(field_name, sample_data):
     values = {str(item[field_name]) for item in sample_data if field_name in item and item[field_name] is not None}
     return sorted(list(values))
 
+def execute_join_pipeline(api_data, join_rules):
+    """
+    Mengeksekusi serangkaian aturan join secara berurutan menggunakan Pandas.
+    """
+    if not join_rules:
+        st.error("Tidak ada aturan join yang didefinisikan.")
+        return None
+
+    # Ambil alias API pertama dalam aturan pertama sebagai tabel dasar
+    base_alias = join_rules[0]['left_api_alias']
+    if base_alias not in api_data:
+        st.error(f"Data untuk alias '{base_alias}' tidak ditemukan.")
+        return None
+        
+    # Konversi data base menjadi DataFrame Pandas
+    base_df = pd.DataFrame(api_data[base_alias])
+    
+    # Lakukan join secara sekuensial
+    for i, rule in enumerate(join_rules):
+        left_alias = rule['left_api_alias']
+        right_alias = rule['right_api_alias']
+        
+        # Pastikan tabel kiri sesuai dengan hasil join sebelumnya
+        if i > 0 and left_alias != join_rules[i-1]['left_api_alias']:
+             # Untuk kesederhanaan, contoh ini mengasumsikan join berantai (A->B, A->C)
+             # Logika yang lebih kompleks bisa menangani (A->B, B->C)
+             pass
+
+        right_df = pd.DataFrame(api_data[right_alias])
+        
+        try:
+            base_df = pd.merge(
+                left=base_df,
+                right=right_df,
+                left_on=rule['left_on_key'],
+                right_on=rule['right_on_key'],
+                how=rule['join_type'].lower(), # 'inner', 'left', 'right', 'outer'
+                suffixes=('', f'_{right_alias}') # Tambahkan suffix jika ada nama kolom yg sama
+            )
+        except Exception as e:
+            st.error(f"Error pada aturan join ke-{i+1} ({left_alias} -> {right_alias}): {e}")
+            return None
+
+    return base_df
+
 def display_api_extractor(supabase: Client):
     """Menampilkan seluruh komponen untuk ekstraksi data dari API."""
     
     st.header("1. Masukkan URL API Eksternal")
-    api_url = st.text_input("URL API:", placeholder="https://api.example.com/users", key="api_url_input")
 
-    if st.button("Ambil Sampel Data"):
-        if api_url:
-            try:
-                r = requests.get(api_url, params={"limit": 10})
-                r.raise_for_status()
-                data = r.json()
-                if isinstance(data, dict):
-                    data = next((v for v in data.values() if isinstance(v, list)), data)
-                
-                if isinstance(data, list) and data:
-                    st.session_state.sample_data = data
-                    st.session_state.sample_fields = list(data[0].keys())
-                    st.success("Sampel data berhasil diambil.")
-                    with st.expander("Lihat Sampel Data Pertama"):
-                        st.json(data[0])
+    # Inisialisasi state
+    if 'api_sources' not in st.session_state:
+        st.session_state.api_sources = {} # {alias: url}
+    if 'join_rules' not in st.session_state:
+        st.session_state.join_rules = []
+    if 'api_data' not in st.session_state:
+        st.session_state.api_data = {} # {alias: data}
+
+    # --- 1. Mengelola Sumber API ---
+    with st.expander("1. Daftarkan Sumber API", expanded=True):
+        with st.form("api_source_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            api_alias = col1.text_input("Nama Alias (tanpa spasi)", placeholder="mahasiswa")
+            api_url = col2.text_input("URL API", placeholder="https://api.example.com/mahasiswa")
+            if st.form_submit_button("➕ Tambah API"):
+                if api_alias and api_url:
+                    st.session_state.api_sources[api_alias] = api_url
+                    st.success(f"API '{api_alias}' ditambahkan.")
                 else:
-                    st.error("Format data dari API tidak valid atau kosong. Harap pastikan respons berisi list/array JSON.")
-            except Exception as e:
-                st.error(f"Gagal mengambil data dari API: {e}")
-        else:
-            st.warning("Harap masukkan URL API terlebih dahulu.")
+                    st.warning("Alias dan URL tidak boleh kosong.")
+        
+        if st.session_state.api_sources:
+            st.write("**API Terdaftar:**")
+            st.json(st.session_state.api_sources)
 
+    # --- 2. Ambil Data dari Semua API ---
+    if st.session_state.api_sources:
+        if st.button("Ambil Data dari Semua API Terdaftar"):
+            st.session_state.api_data = {}
+            with st.spinner("Mengambil data..."):
+                for alias, url in st.session_state.api_sources.items():
+                    try:
+                        r = requests.get(url)
+                        r.raise_for_status()
+                        data = r.json()
+                        if isinstance(data, dict):
+                            data = next((v for v in data.values() if isinstance(v, list)), [])
+                        st.session_state.api_data[alias] = data
+                        st.success(f"Data untuk '{alias}' berhasil diambil.")
+                    except Exception as e:
+                        st.error(f"Gagal mengambil data untuk '{alias}': {e}")
+
+
+    if st.session_state.api_data:
+        num_sources = len(st.session_state.api_data)
+
+        if num_sources == 1:
+            st.info("💡 Mode Proses Tunggal terdeteksi. Data siap untuk di-map.")
+            
+            # Langsung siapkan data untuk mapping
+            alias = list(st.session_state.api_data.keys())[0]
+            single_api_data = st.session_state.api_data[alias]
+            
+            # Konversi ke format yang konsisten (DataFrame)
+            df = pd.DataFrame(single_api_data)
+            st.session_state.sample_data = df.to_dict('records')
+            st.session_state.sample_fields = list(df.columns)
+
+            st.dataframe(df.head())
+            with st.expander("Lihat detail data pertama (JSON)"):
+                st.json(st.session_state.sample_data[0])            
+        elif num_sources > 1:
+            st.info("💡 Mode Join Engine terdeteksi. Silakan definisikan aturan join.")
+            with st.expander("2. Definisikan Aturan Join", expanded=True):
+                aliases = list(st.session_state.api_sources.keys())
+                with st.form("join_rule_form", clear_on_submit=True):
+                    st.write("Buat Aturan Join Baru:")
+                    cols = st.columns(5)
+                    left_api = cols[0].selectbox("API Kiri", aliases, key="left_api")
+                    left_key = cols[1].text_input("Key Kiri", placeholder="dosenId")
+                    right_api = cols[2].selectbox("API Kanan", aliases, key="right_api")
+                    right_key = cols[3].text_input("Key Kanan", placeholder="id")
+                    join_type = cols[4].selectbox("Tipe Join", ["INNER", "LEFT", "RIGHT", "OUTER"])
+    
+                    if st.form_submit_button("🔗 Tambah Aturan Join"):
+                        rule = {
+                            "left_api_alias": left_api, "left_on_key": left_key,
+                            "right_api_alias": right_api, "right_on_key": right_key,
+                            "join_type": join_type
+                        }
+                        st.session_state.join_rules.append(rule)
+                
+                if st.session_state.join_rules:
+                    st.write("**Daftar Aturan Join:**")
+                    for i, rule in enumerate(st.session_state.join_rules):
+                        st.code(f"{i+1}: {rule['left_api_alias']}.{rule['left_on_key']} {rule['join_type']} JOIN {rule['right_api_alias']}.{rule['right_on_key']}")
+
+    if st.session_state.join_rules:
+        if st.button("🚀 Eksekusi Rangkaian Join"):
+            with st.spinner("Melakukan join..."):
+                final_df = execute_join_pipeline(st.session_state.api_data, st.session_state.join_rules)
+
+                if final_df is not None:
+                    st.success("Join berhasil dieksekusi!")
+                    st.session_state.sample_data = final_df.to_dict('records')
+                    st.session_state.sample_fields = list(final_df.columns)
+                    
+                    st.dataframe(final_df.head())
+                    with st.expander("Lihat detail hasil join pertama (JSON)"):
+                        st.json(st.session_state.sample_data[0])
+
+    mapping = st.session_state.get("mapping", {})
     if "sample_fields" in st.session_state and st.session_state.sample_fields:
         st.header("2. Mapping Field API ke Data Warehouse")
         
