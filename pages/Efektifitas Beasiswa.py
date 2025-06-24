@@ -1,10 +1,12 @@
 import streamlit as st
 import pandas as pd
+from utils.auth import require_login
 import plotly.express as px
 from supabase import create_client
 from io import BytesIO
 
 # ------------------- Konfigurasi Halaman -------------------
+require_login()
 st.set_page_config(
     page_title="Dashboard Efektivitas Beasiswa",
     page_icon="🎓",

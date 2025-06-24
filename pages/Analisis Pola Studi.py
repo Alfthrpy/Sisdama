@@ -2,10 +2,12 @@
 import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
+from utils.auth import require_login
 from utils.get_connection import init_supabase_connection
 # --- KONFIGURASI SUPABASE ---
 supabase = init_supabase_connection()
 
+require_login()
 # --- TITLE ---
 st.set_page_config(page_title="Analisis Pola Studi", layout="wide")
 st.title("📊 Analisis Pola Studi Mahasiswa")
