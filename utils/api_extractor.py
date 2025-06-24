@@ -32,50 +32,55 @@ def get_unique_api_values(field_name, sample_data):
     values = {str(item[field_name]) for item in sample_data if field_name in item and item[field_name] is not None}
     return sorted(list(values))
 
-def execute_join_pipeline(api_data, join_rules):
+def execute_sequential_join_pipeline(api_data, join_rules):
     """
-    Mengeksekusi serangkaian aturan join secara berurutan menggunakan Pandas.
+    Mengeksekusi serangkaian aturan join secara berurutan (A->B, B->C, ...).
+    Hasil dari satu join akan menjadi input 'left' untuk join berikutnya.
     """
     if not join_rules:
-        st.error("Tidak ada aturan join yang didefinisikan.")
+        print("Error: Tidak ada aturan join yang didefinisikan.")
         return None
 
-    # Ambil alias API pertama dalam aturan pertama sebagai tabel dasar
-    base_alias = join_rules[0]['left_api_alias']
-    if base_alias not in api_data:
-        st.error(f"Data untuk alias '{base_alias}' tidak ditemukan.")
+    # --- PERUBAHAN 1: Inisialisasi DataFrame hasil ---
+    # Kita mulai dengan tabel 'kiri' dari aturan PERTAMA sebagai dasar.
+    try:
+        base_alias = join_rules[0]['left_api_alias']
+        result_df = pd.DataFrame(api_data[base_alias])
+    except KeyError:
+        print(f"Error: Data untuk alias '{base_alias}' tidak ditemukan.")
         return None
-        
-    # Konversi data base menjadi DataFrame Pandas
-    base_df = pd.DataFrame(api_data[base_alias])
-    
+
     # Lakukan join secara sekuensial
     for i, rule in enumerate(join_rules):
-        left_alias = rule['left_api_alias']
-        right_alias = rule['right_api_alias']
-        
-        # Pastikan tabel kiri sesuai dengan hasil join sebelumnya
-        if i > 0 and left_alias != join_rules[i-1]['left_api_alias']:
-             # Untuk kesederhanaan, contoh ini mengasumsikan join berantai (A->B, A->C)
-             # Logika yang lebih kompleks bisa menangani (A->B, B->C)
-             pass
-
-        right_df = pd.DataFrame(api_data[right_alias])
-        
         try:
-            base_df = pd.merge(
-                left=base_df,
+            # Ambil tabel 'kanan' untuk join saat ini
+            right_alias = rule['right_api_alias']
+            right_df = pd.DataFrame(api_data[right_alias])
+            
+            # --- PERUBAHAN 2: Logika Join Inti ---
+            # 'left' DataFrame sekarang adalah 'result_df' yang terus diperbarui.
+            # 'left_on' adalah kunci dari 'result_df'.
+            # 'right_on' adalah kunci dari 'right_df' yang baru.
+            result_df = pd.merge(
+                left=result_df,
                 right=right_df,
                 left_on=rule['left_on_key'],
                 right_on=rule['right_on_key'],
-                how=rule['join_type'].lower(), # 'inner', 'left', 'right', 'outer'
-                suffixes=('', f'_{right_alias}') # Tambahkan suffix jika ada nama kolom yg sama
+                how=rule['join_type'].lower(),
+                suffixes=('', f'_{right_alias}')
             )
+        except KeyError as e:
+            # Error jika kolom kunci join tidak ditemukan
+            print(f"Error pada aturan join ke-{i+1}: Kolom kunci tidak ditemukan -> {e}")
+            return None
         except Exception as e:
-            st.error(f"Error pada aturan join ke-{i+1} ({left_alias} -> {right_alias}): {e}")
+            # Error umum lainnya
+            print(f"Error pada aturan join ke-{i+1} ({rule['left_api_alias']} -> {right_alias}): {e}")
             return None
 
-    return base_df
+    return result_df
+
+
 
 def display_api_extractor(supabase: Client):
     """Menampilkan seluruh komponen untuk ekstraksi data dari API."""
@@ -172,7 +177,7 @@ def display_api_extractor(supabase: Client):
     if st.session_state.join_rules:
         if st.button("🚀 Eksekusi Rangkaian Join"):
             with st.spinner("Melakukan join..."):
-                final_df = execute_join_pipeline(st.session_state.api_data, st.session_state.join_rules)
+                final_df = execute_sequential_join_pipeline(st.session_state.api_data, st.session_state.join_rules)
 
                 if final_df is not None:
                     st.success("Join berhasil dieksekusi!")
