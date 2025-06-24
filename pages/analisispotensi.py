@@ -2,37 +2,42 @@
 import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
-
+from utils.get_connection import init_supabase_connection
 # --- KONFIGURASI SUPABASE ---
-url = "https://yqcttigqnvltzfkhmblm.supabase.co"  # Ganti dengan URL Supabase kamu
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxY3R0aWdxbnZsdHpma2htYmxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2OTU3MjQsImV4cCI6MjA2NDI3MTcyNH0.88M22DqDlSSjcOVPjw4Stx0fR6q_8NuLGsXlHuD6OJg"    # Ganti dengan API Key Supabase kamu
-supabase: Client = create_client(url, key)
+supabase = init_supabase_connection()
 
 # --- TITLE ---
 st.set_page_config(page_title="Analisis Pola Studi", layout="wide")
 st.title("📊 Analisis Pola Studi Mahasiswa")
 
-# --- FILTERS ---
-with st.sidebar:
-    st.header("Filter Mahasiswa")
-    search = st.text_input("🔍 Nama atau NIM")
-    tahun_masuk = st.selectbox("📅 Tahun Masuk", options=["Semua", 2020, 2021, 2022], index=0)
-    show_only_delay = st.toggle("🚨 Hanya potensi keterlambatan", value=False)
-
 # --- LOAD DATA ---
 @st.cache_data
-
 def load_data():
-    response = supabase.rpc("get_analisis_pola_studi").execute()
+    response = supabase.rpc("get_ringkasan_studi").execute()
     return pd.DataFrame(response.data)
 
 df = load_data()
 
+# --- DYNAMIC YEAR FILTER ---
+@st.cache_data
+def get_unique_years():
+    return sorted(df["tahun_masuk"].dropna().unique().tolist())
+
+year = get_unique_years()
+
+# --- FILTERS ---
+with st.sidebar:
+    st.header("Filter Mahasiswa")
+    search = st.text_input("🔍 Nama atau NIM")
+    tahun_masuk = st.selectbox("📅 Tahun Masuk", options=["Semua"] + year, index=0)
+    show_only_delay = st.toggle("🚨 Hanya potensi keterlambatan", value=False)
+
 # --- FILTERING ---
 if search:
-    df = df[df["nama_lengkap"].str.contains(search, case=False) | df["nim"].str.contains(search)]
+    df = df[df["nama_lengkap"].str.contains(search, case=False) | df["nim"].str.contains(search, case=False)]
+
 if tahun_masuk != "Semua":
-    df = df[df["tahun_masuk"] == int(tahun_masuk)]
+    df = df[df["tahun_masuk"] == tahun_masuk]
 
 # --- GROUPING ---
 sks_lulus = df.groupby("mahasiswa_id")["sks_lulus_semester"].sum().reset_index(name="total_sks")
@@ -77,8 +82,8 @@ st.subheader("📈 Grafik Pengambilan SKS per Mahasiswa")
 
 if not df_summary.empty:
     nama_terpilih = st.selectbox("Pilih Mahasiswa", df_summary["nama_lengkap"].unique())
-    
-    if nama_terpilih:  # pastikan mahasiswa dipilih
+
+    if nama_terpilih:
         df_selected = df_summary[df_summary["nama_lengkap"] == nama_terpilih]
 
         if not df_selected.empty:
@@ -97,9 +102,6 @@ if not df_summary.empty:
             st.warning("❗ Mahasiswa tidak ditemukan.")
 else:
     st.warning("⚠️ Tidak ada data mahasiswa yang dapat ditampilkan.")
-
-
-
 
 # --- EKSPOR ---
 csv = df_summary.to_csv(index=False).encode("utf-8")
