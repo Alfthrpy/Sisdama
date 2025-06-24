@@ -311,6 +311,6 @@ st.markdown("""
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("""
 <div style="text-align: center; padding: 2rem 0; color: #7f8c8d; border-top: 1px solid #ecf0f1; margin-top: 2rem;">
-    <p>© 2024 SIDAMA - Sistem Data Mahasiswa </p>
+    <p>© 2025 SIDAMA - Sistem Data Mahasiswa </p>
 </div>
 """, unsafe_allow_html=True)
