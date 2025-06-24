@@ -223,7 +223,8 @@ if not filtered_df.empty and beasiswa_filter:
     st.dataframe(tampil_df, use_container_width=True, hide_index=True)
 
     excel_data = to_excel(tampil_df)
-    st.download_button("\ud83d\udcc5 Unduh ke Excel", data=excel_data, file_name="penerima_beasiswa.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("Unduh ke Excel", data=excel_data, file_name="penerima_beasiswa.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
 else:
     st.info("Silakan pilih filter untuk menampilkan dan mengunduh data.")
 
