@@ -16,7 +16,7 @@ st.title("📊 Analisis Pola Studi Mahasiswa")
 # --- LOAD DATA ---
 @st.cache_data
 def load_data():
-    response = supabase.rpc("get_ringkasan_studi").execute()
+    response = supabase.rpc("get_analisis_pola_studi").execute()
     return pd.DataFrame(response.data)
 
 df = load_data()
