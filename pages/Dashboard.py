@@ -12,6 +12,8 @@ import plotly.io as pio
 from io import BytesIO
 from PyPDF2 import PdfMerger
 from utils.get_connection import init_supabase_connection
+from utils.auth import require_login
+
 
 require_login()
 
