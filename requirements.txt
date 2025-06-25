@@ -4,3 +4,5 @@ supabase
 pandas
 XlsxWriter
 plotly
+numpy
+PyPDF2
