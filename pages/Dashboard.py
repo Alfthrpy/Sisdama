@@ -11,7 +11,9 @@ warnings.filterwarnings('ignore')
 import plotly.io as pio
 from io import BytesIO
 from PyPDF2 import PdfMerger
+from utils.get_connection import init_supabase_connection
 
+require_login()
 
 # Custom CSS for better styling
 st.markdown("""
@@ -65,20 +67,11 @@ st.markdown("""
 # ========================
 # DATA LOADING & CACHING
 # ========================
-@st.cache_resource
-def init_supabase():
-    try:
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets["SUPABASE_KEY"]
-        return create_client(url, key)
-    except Exception as e:
-        st.error(f"Error connecting to Supabase: {e}")
-        return None
 
 @st.cache_data(ttl=300)  
 def load_data():
     try:
-        supabase = init_supabase()
+        supabase = init_supabase_connection()
         if not supabase:
             return None, None, None, None
             
