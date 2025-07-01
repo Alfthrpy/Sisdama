@@ -195,42 +195,11 @@ st.markdown("""
 # --- Statistics Section ---
 col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
 
-with col_stat1:
-    st.markdown("""
-    <div class="stat-item">
-        <span class="stat-number">98%</span>
-        <span class="stat-label">Akurasi Prediksi</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_stat2:
-    st.markdown("""
-    <div class="stat-item">
-        <span class="stat-number">15+</span>
-        <span class="stat-label">Universitas Partner</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_stat3:
-    st.markdown("""
-    <div class="stat-item">
-        <span class="stat-number">50K+</span>
-        <span class="stat-label">Mahasiswa Terbantu</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_stat4:
-    st.markdown("""
-    <div class="stat-item">
-        <span class="stat-number">24/7</span>
-        <span class="stat-label">Monitoring Otomatis</span>
-    </div>
-    """, unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- Fitur Unggulan ---
-st.markdown("<h2 style='text-align: center; color: #3a5ba0; font-weight: 600; margin-bottom: 2rem;'>🚀 Fitur Unggulan Kami</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #3a5ba0; font-weight: 600; margin-bottom: 2rem;'>Fitur Unggulan Kami</h2>", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3, gap="large")
 
